@@ -45,7 +45,6 @@ export class Turbo {
     private handle = async (request: Request, server: Server): Promise<Response> => {
         try {
             const url = new URL(request.url);
-            console.log("handling request", url.pathname);
             let route = this.routes.find((route) => {
                 return matchRoute(route.path, url.pathname);
             });
@@ -55,14 +54,10 @@ export class Turbo {
             }
 
             if (!route) return new Response("Not found", {status: 404});
-            console.log("found route with path 2", route.path);
     
-            console.log(request.method);
             if (!([route.method??HttpMethod.GET, HttpMethod.HEAD]).includes(request.method as HttpMethod)){
-                console.log("method not allowed");
                 return new Response("Method Not Allowed", {status: 405});
             }
-            console.log("63", route.path);
             const turboRequest = request as TurboRequest<
                 RouteParameters<typeof route.path>
             >;
@@ -70,14 +65,11 @@ export class Turbo {
                 route.path,
                 url.pathname
             ) as RouteParameters<typeof route.path>;
-            console.log("71", route.path);
             if (request.method === HttpMethod.GET) {
-                console.log("handling get request");
                 return await route.handler(turboRequest, server);
 
             }
             if (request.method === HttpMethod.HEAD) {
-                console.log("handling head request");
                 const handler = await route.handler(turboRequest, server);
                 return new Response(null, {
                     status: handler.status,
@@ -86,7 +78,6 @@ export class Turbo {
                 });
             }
             else {
-                console.log("handling other request");
                 return new Response("No Method Found", {status: 500});
             }
 

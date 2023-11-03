@@ -43,7 +43,6 @@ export class Home {
         response.headers.delete("Content-Security-Policy");
         response.headers.delete("Transfer-Encoding");
         response.headers.delete("Content-Encoding");
-        console.log(response.headers);
         return response;
     }
 }
