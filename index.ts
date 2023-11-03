@@ -10,18 +10,19 @@ import {
 export class Turbo {
     private routes: Array<RouteObject<any, any>> = [];
     public server: Server | undefined;
+
     public listen(port: number) {
         const handle = this.handle;
-        
-         this.server = Bun.serve({
+
+        this.server = Bun.serve({
             port: port,
             async fetch(request, server) {
                 return await handle(request, server);
             },
         });
-       
+
     }
- 
+
     public get<Route extends string, Response>(
         routeString: Route,
         method: RouteHandler<Route, Response>
@@ -44,16 +45,24 @@ export class Turbo {
     private handle = async (request: Request, server: Server): Promise<Response> => {
         try {
             const url = new URL(request.url);
-
-            const route = this.routes.find((route) => {
+            console.log("handling request", url.pathname);
+            let route = this.routes.find((route) => {
                 return matchRoute(route.path, url.pathname);
             });
+    
+            if (!route) {
+                route = this.routes.find(route => route.path === "*")
+            }
 
             if (!route) return new Response("Not found", {status: 404});
-
-            if (!(route.method ?? "GET").includes(request.method as HttpMethod))
+            console.log("found route with path 2", route.path);
+    
+            console.log(request.method);
+            if (!([route.method??HttpMethod.GET, HttpMethod.HEAD]).includes(request.method as HttpMethod)){
+                console.log("method not allowed");
                 return new Response("Method Not Allowed", {status: 405});
-
+            }
+            console.log("63", route.path);
             const turboRequest = request as TurboRequest<
                 RouteParameters<typeof route.path>
             >;
@@ -61,7 +70,26 @@ export class Turbo {
                 route.path,
                 url.pathname
             ) as RouteParameters<typeof route.path>;
-            return await route.handler(turboRequest, server);
+            console.log("71", route.path);
+            if (request.method === HttpMethod.GET) {
+                console.log("handling get request");
+                return await route.handler(turboRequest, server);
+
+            }
+            if (request.method === HttpMethod.HEAD) {
+                console.log("handling head request");
+                const handler = await route.handler(turboRequest, server);
+                return new Response(null, {
+                    status: handler.status,
+                    statusText: handler.statusText,
+                    headers: handler.headers,
+                });
+            }
+            else {
+                console.log("handling other request");
+                return new Response("No Method Found", {status: 500});
+            }
+
         } catch (e) {
             console.error(e);
             return new Response("Internal Server Error", {status: 500});
@@ -90,7 +118,7 @@ function extractParams(routePattern: string, url: string): Record<string, string
 function matchRoute(routePattern: string, url: string): boolean {
     const routeParts = routePattern.replace(/^\//, "").split("/");
     const urlParts = url.replace(/^\//, "").split("/");
-    if(urlParts.at(0) === "" && routeParts.at(0) !== ""){
+    if (urlParts.at(0) === "" && routeParts.at(0) !== "") {
         return false;
     }
     for (let i = 0; i < routeParts.length; i++) {
@@ -105,5 +133,6 @@ function matchRoute(routePattern: string, url: string): boolean {
             return false;
         }
     }
-    return true;
+    return urlParts.length <= routeParts.length;
+
 }

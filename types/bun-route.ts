@@ -10,7 +10,8 @@ export enum HttpMethod {
     GET = 'GET',
     POST = 'POST',
     PUT = 'PUT',
-    DELETE = 'DELETE'
+    DELETE = 'DELETE',
+    HEAD = 'HEAD'
 }
 
 export interface TurboServer extends Server {
