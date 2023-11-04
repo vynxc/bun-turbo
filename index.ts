@@ -7,9 +7,11 @@ import {
   RoutePartMeta,
   TurboRequest,
 } from "./types/bun-route";
+import { TObject, Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
 
 export class Turbo {
-  private routes: Array<RouteObject<any, any>> = [];
+  private routes: Array<RouteObject<any, any, any>> = [];
   public server: Server | undefined;
 
   public listen(port: number) {
@@ -59,6 +61,44 @@ export class Turbo {
     return this;
   }
 
+  public post<Route extends string, Response, Scheme extends TObject>(
+    routeString: Route,
+    method: RouteHandler<Route, Response, Scheme>,
+    bodyScheme?: Scheme
+  ) {
+    const routeParts = routeString.replace(/^\//, "").split("/");
+
+    const routePartsMeta = routeParts.map((part) => {
+      return {
+        part: part,
+        startsWithColon: part.startsWith(":"),
+        paramName: part.replace(":", "").replace(/\?$/, ""),
+        endsWithQuestionMark: part.endsWith("?"),
+      } satisfies RoutePartMeta;
+    });
+    const route: RouteObject<Route, Response, Scheme> = {
+      routePartsMeta: routePartsMeta,
+      path: routeString,
+      method: HttpMethod.POST,
+      handler: method,
+      bodyScheme: bodyScheme,
+    };
+    this.routes.push(route);
+    this.routes.sort((a, b) => {
+      if (a.path === "*") return -1;
+      if (b.path === "*") return 1;
+      const staticPartsA = (a.path as string)
+        .split("/")
+        .filter((part) => !part.startsWith(":")).length;
+      const staticPartsB = (b.path as string)
+        .split("/")
+        .filter((part) => !part.startsWith(":")).length;
+      return staticPartsB - staticPartsA;
+    });
+
+    return this;
+  }
+
   private handle = async (
     request: Request,
     server: Server
@@ -71,8 +111,7 @@ export class Turbo {
 
       if (!route && this.routes.at(0)?.path === "*") {
         route = this.routes[0];
-
-      }else if (!route) return new Response("Not found", { status: 404 });
+      } else if (!route) return new Response("Not found", { status: 404 });
 
       if (
         ![route.method ?? HttpMethod.GET, HttpMethod.HEAD].includes(
@@ -84,13 +123,34 @@ export class Turbo {
       const turboRequest = request as TurboRequest<
         RouteParameters<typeof route.path>
       >;
-      turboRequest.params = extractParams(
-        route.routePartsMeta,
-        url.pathname
-      );
+      turboRequest.params = extractParams(route.routePartsMeta, url.pathname);
 
       if (request.method === HttpMethod.GET) {
         return await route.handler(turboRequest, server);
+      }
+      if (request.method === HttpMethod.POST) {
+        try {
+          const body = await request.json();
+          if (route.bodyScheme) {
+            if (!Value.Check(route.bodyScheme, body)) {
+              const error = Value.Errors(route.bodyScheme, body).First();
+              if (error) {
+                const { path, value, message } = error;
+                return new Response(
+                  `Invalid Body: ${message} at ${path} with value ${value}`,
+                  { status: 400 }
+                );
+              }
+              return new Response("Invalid Body", { status: 400 });
+            }
+          }
+          return await route.handler(turboRequest, server, body);
+        } catch (e) {
+          if (e instanceof Error)
+            return new Response("Invalid Body:" + e.message, { status: 400 });
+          
+          return new Response("Invalid Body", { status: 400 });
+        }
       }
       if (request.method === HttpMethod.HEAD) {
         const handler = await route.handler(turboRequest, server);
@@ -113,7 +173,7 @@ function extractParams(
   routeParts: RoutePartMeta[],
   url: string
 ): Record<string, string> {
-  const urlParts = url.split('/').filter(Boolean);
+  const urlParts = url.split("/").filter(Boolean);
   let params: Record<string, string> = {};
   for (let i = 0; i < routeParts.length; i++) {
     if (routeParts[i].startsWithColon) {
@@ -128,7 +188,7 @@ function extractParams(
 }
 
 function matchRoute(routeParts: RoutePartMeta[], url: string) {
-  const urlParts = url.split('/').filter(Boolean);
+  const urlParts = url.split("/").filter(Boolean);
   const partsLength = routeParts.length;
 
   for (let i = 0; i < partsLength; i++) {

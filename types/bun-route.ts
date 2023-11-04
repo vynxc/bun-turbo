@@ -1,3 +1,4 @@
+import { Static, TObject } from "@sinclair/typebox";
 import {Server} from "bun";
 
 export interface BunRoute {
@@ -43,15 +44,16 @@ export interface ParamsDictionary {
 }
 
 
-export type RouteObject<Route extends string, Response> = {
+export type RouteObject<Route extends string, Response,Scheme extends TObject = any> = {
     path: Route;
     routePartsMeta: RoutePartMeta[];
     method: HttpMethod;
-    handler: RouteHandler<Route, Response>;
+    handler: RouteHandler<Route, Response,Scheme>;
+    bodyScheme?: Scheme;
 };
 
-export interface RouteHandler<Route extends string, Response> {
-    (request: TurboRequest<RouteParameters<Route>>, server: TurboServer): Promise<Response>;
+export interface RouteHandler<Route extends string, Response,Scheme extends TObject = any> {
+    (request: TurboRequest<RouteParameters<Route>>, server: TurboServer,body?:Static<Scheme>): Promise<Response>;
 }
 
 export interface RoutePartMeta {

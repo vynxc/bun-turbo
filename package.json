@@ -1,15 +1,18 @@
 {
   "name": "bun-router",
   "module": "index.ts",
-  "type": "module",
-  "scripts": {
-    "dev": "bun run --watch index.ts",
-    "run": "bun run index.ts"
-  },
   "devDependencies": {
     "bun-types": "latest"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "dev": "bun run --watch index.ts",
+    "run": "bun run index.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@sinclair/typebox": "^0.31.22"
   }
 }
