@@ -45,10 +45,18 @@ export interface ParamsDictionary {
 
 export type RouteObject<Route extends string, Response> = {
     path: Route;
+    routePartsMeta: RoutePartMeta[];
     method: HttpMethod;
     handler: RouteHandler<Route, Response>;
 };
 
 export interface RouteHandler<Route extends string, Response> {
     (request: TurboRequest<RouteParameters<Route>>, server: TurboServer): Promise<Response>;
+}
+
+export interface RoutePartMeta {
+    part:string;
+    startsWithColon: boolean;
+    endsWithQuestionMark: boolean;
+    paramName: string;
 }
