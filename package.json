@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "bun run --watch index.ts",
-    "run": "bun run index.ts"
+    "start": "bun run index.ts"
   },
   "type": "module",
   "dependencies": {
